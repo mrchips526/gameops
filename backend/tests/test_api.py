@@ -64,3 +64,76 @@ def test_services_summary():
         "offline": 0,
         "unknown": 1,
     }
+
+def test_create_service():
+    from app.api.routes import services
+
+    original_services = services.copy()
+
+    try:
+        response = client.post(
+            "/api/v1/services",
+            json={
+                "name": "Test Service",
+                "type": "api",
+                "status": "online",
+                "host": "127.0.0.1",
+            },
+        )
+
+        assert response.status_code == 201
+
+        created_service = response.json()
+
+        assert created_service["id"] == 4
+        assert created_service["name"] == "Test Service"
+        assert created_service["status"] == "online"
+
+        list_response = client.get("/api/v1/services")
+        assert list_response.status_code == 200
+        assert list_response.json()["total"] == 4
+
+    finally:
+        services[:] = original_services
+
+def test_create_service_rejects_blank_name():
+    response = client.post(
+        "/api/v1/services",
+        json={
+            "name": "   ",
+            "type": "api",
+            "status": "online",
+            "host": "127.0.0.1",
+        },
+    )
+
+    assert response.status_code == 422
+
+def test_create_service_rejects_invalid_status():
+    response = client.post(
+        "/api/v1/services",
+        json={
+            "name": "Test Service",
+            "type": "api",
+            "status": "broken",
+            "host": "127.0.0.1",
+        },
+    )
+
+    assert response.status_code == 422
+
+def test_get_service_by_id():
+    response = client.get("/api/v1/services/1")
+
+    assert response.status_code == 200
+
+    service = response.json()
+
+    assert service["id"] == 1
+    assert service["name"] == "Game Server"
+
+def test_get_service_not_found():
+    response = client.get("api/v1/services/99999")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Service not found"
